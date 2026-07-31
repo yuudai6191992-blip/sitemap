@@ -15,6 +15,9 @@ class FilterManager {
     /** @type {Set<string>} 選択中のカテゴリ（複数選択可） */
     this.selectedCategories = new Set();
 
+    /** @type {Set<string>} 選択中のゾーン（風景マップのエリア／複数選択可） */
+    this.selectedZones = new Set();
+
     /** @type {string} 現在のソートキー（name / category / newest） */
     this.sortKey = "name";
   }
@@ -50,6 +53,46 @@ class FilterManager {
   /** 選択中カテゴリを配列で返す */
   getSelectedCategories() {
     return [...this.selectedCategories];
+  }
+
+  /* --------------------------------------------------
+     ゾーン選択の操作（風景マップのエリア）
+  -------------------------------------------------- */
+
+  /**
+   * ゾーンの選択状態をトグルする
+   * @param {string} zoneKey
+   * @returns {boolean} トグル後に「選択中」なら true
+   */
+  toggleZone(zoneKey) {
+    if (this.selectedZones.has(zoneKey)) {
+      this.selectedZones.delete(zoneKey);
+      return false;
+    }
+    this.selectedZones.add(zoneKey);
+    return true;
+  }
+
+  /** 選択ゾーンをすべて解除する */
+  clearZones() {
+    this.selectedZones.clear();
+  }
+
+  /** 選択中ゾーンを配列で返す */
+  getSelectedZones() {
+    return [...this.selectedZones];
+  }
+
+  /**
+   * ゾーン絞り込みを適用する（選択ゾーンのいずれかに属するものを残す）
+   * @param {Array} technologies
+   * @returns {Array}
+   */
+  applyZoneFilter(technologies) {
+    if (this.selectedZones.size === 0) {
+      return technologies;
+    }
+    return technologies.filter((tech) => this.selectedZones.has(tech.zone));
   }
 
   /* --------------------------------------------------

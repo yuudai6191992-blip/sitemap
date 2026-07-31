@@ -27,6 +27,9 @@ class TechnologyManager {
     /** @type {Array<string>} カテゴリ一覧 */
     this.categories = [];
 
+    /** @type {Array<Object>} ゾーン定義（風景マップのエリア） */
+    this.zones = [];
+
     /** @type {Object} メタ情報（会社名・タイトル等） */
     this.meta = {};
 
@@ -56,8 +59,29 @@ class TechnologyManager {
         ? data.categories
         : this._collectCategories();
 
+    // ゾーン定義
+    this.zones = Array.isArray(data.zones) ? data.zones : [];
+
     // ID参照マップを構築
     this._byId = new Map(this.technologies.map((t) => [t.id, t]));
+  }
+
+  /** ゾーン定義を返す */
+  getZones() {
+    return this.zones;
+  }
+
+  /**
+   * ゾーン別の技術件数を集計する
+   * @returns {Map<string, number>}
+   */
+  getZoneCounts() {
+    const counts = new Map();
+    this.zones.forEach((z) => counts.set(z.key, 0));
+    this.technologies.forEach((tech) => {
+      if (tech.zone) counts.set(tech.zone, (counts.get(tech.zone) || 0) + 1);
+    });
+    return counts;
   }
 
   /** 全技術データを返す */
@@ -110,7 +134,7 @@ class UIManager {
   constructor() {
     // 主要なDOM要素をキャッシュ
     this.el = {
-      cardGrid: document.getElementById("card-grid"),
+      cardGrid: document.getElementById("list-view"),
       categoryList: document.getElementById("category-list"),
       resultCount: document.getElementById("result-count"),
       breadcrumb: document.getElementById("breadcrumb"),
@@ -276,11 +300,18 @@ class UIManager {
    * パンくず（現在の検索条件）を表示
    * @param {Object} state
    * @param {string} state.query 検索語
+   * @param {Array<string>} state.zones 選択ゾーンのラベル
    * @param {Array<string>} state.categories 選択カテゴリ
    */
-  updateBreadcrumb({ query, categories }) {
-    const items = ['<li>技術マップ</li>'];
+  updateBreadcrumb({ query, zones, categories }) {
+    const items = ["<li>技術マップ</li>"];
 
+    if (zones.length > 0) {
+      const tags = zones
+        .map((z) => `<span class="breadcrumb__tag">${this._esc(z)}</span>`)
+        .join(" ");
+      items.push(`<li>ゾーン：${tags}</li>`);
+    }
     if (categories.length > 0) {
       const tags = categories
         .map((c) => `<span class="breadcrumb__tag">${this._esc(c)}</span>`)
@@ -290,7 +321,7 @@ class UIManager {
     if (query) {
       items.push(`<li>検索：「${this._esc(query)}」</li>`);
     }
-    if (categories.length === 0 && !query) {
+    if (zones.length === 0 && categories.length === 0 && !query) {
       items.push("<li>すべての技術</li>");
     }
 
@@ -344,9 +375,23 @@ class App {
       onKeywordClick: (kw) => this._searchByKeyword(kw),
     });
 
+    // 風景マップ：ピンクリックで詳細、ゾーンチップで絞り込み
+    this.map = new MapManager({
+      onPinClick: (id) => this.modal.open(this.tech.getById(id)),
+      onZoneToggle: (zoneKey) => this._onZoneToggle(zoneKey),
+    });
+
+    // 現在の表示モード（'map' | 'list'）。初期はビジュアルなマップ表示
+    this.view = "map";
+
     // 入力要素の参照
     this.searchInput = document.getElementById("search-input");
     this.sortSelect = document.getElementById("sort-select");
+    this.mapView = document.getElementById("map-view");
+    this.listView = document.getElementById("list-view");
+    this.sortWrap = document.getElementById("sort-wrap");
+    this.viewMapBtn = document.getElementById("view-map");
+    this.viewListBtn = document.getElementById("view-list");
   }
 
   /* --------------------------------------------------
@@ -372,7 +417,15 @@ class App {
       (category) => this._onCategoryToggle(category)
     );
 
+    // 風景マップ（ゾーンラベル＋ピン）を生成
+    this.map.render(
+      this.tech.getAll(),
+      this.tech.getZones(),
+      this.tech.getZoneCounts()
+    );
+
     this._bindEvents();
+    this._applyView(); // 初期ビューを反映
     this.render(); // 初回描画
   }
 
@@ -401,6 +454,10 @@ class App {
       this.render();
     });
 
+    // 表示切替（マップ / 一覧）
+    this.viewMapBtn.addEventListener("click", () => this._setView("map"));
+    this.viewListBtn.addEventListener("click", () => this._setView("list"));
+
     // フィルタ全体リセット
     document
       .getElementById("filter-reset")
@@ -414,28 +471,78 @@ class App {
 
   /* --------------------------------------------------
      描画パイプライン
-     全データ → 検索 → カテゴリ絞り込み → ソート → 描画
+     全データ → 検索 → カテゴリ絞り込み → ゾーン絞り込み → 描画
   -------------------------------------------------- */
   render() {
     const all = this.tech.getAll();
 
+    // 検索 → カテゴリ → ゾーン の順に絞り込む
     const searched = this.search.apply(all);
-    const filtered = this.filter.applyCategoryFilter(searched);
-    const sorted = this.filter.applySort(filtered);
+    const byCategory = this.filter.applyCategoryFilter(searched);
+    const filtered = this.filter.applyZoneFilter(byCategory);
 
-    // カード描画
-    this.ui.renderCards(sorted, {
-      onCardClick: (id) => this.modal.open(this.tech.getById(id)),
-      onTagClick: (kw) => this._searchByKeyword(kw),
-    });
+    // --- マップ表示：該当ピンを強調（非該当は減光） ---
+    const visibleIds = new Set(filtered.map((t) => t.id));
+    this.map.update(visibleIds);
+    this.map.updateZoneStates(this.filter.selectedZones);
+
+    // --- 一覧表示：ソートしてカード描画 ---
+    if (this.view === "list") {
+      const sorted = this.filter.applySort(filtered);
+      this.ui.renderCards(sorted, {
+        onCardClick: (id) => this.modal.open(this.tech.getById(id)),
+        onTagClick: (kw) => this._searchByKeyword(kw),
+      });
+    } else {
+      // マップ表示中は一覧用のNo Dataパネルは隠す
+      this.ui.el.noData.hidden = true;
+    }
 
     // 件数・パンくず・チップ状態を更新
-    this.ui.updateResultCount(sorted.length, all.length);
+    this.ui.updateResultCount(filtered.length, all.length);
     this.ui.updateBreadcrumb({
       query: this.search.query,
+      zones: this._selectedZoneLabels(),
       categories: this.filter.getSelectedCategories(),
     });
     this.ui.updateCategoryStates(this.filter.selectedCategories);
+  }
+
+  /** 選択中ゾーンのラベル配列を返す（パンくず表示用） */
+  _selectedZoneLabels() {
+    const keys = this.filter.selectedZones;
+    return this.tech
+      .getZones()
+      .filter((z) => keys.has(z.key))
+      .map((z) => z.label);
+  }
+
+  /* --------------------------------------------------
+     表示モードの切り替え
+  -------------------------------------------------- */
+
+  /** 表示モードを設定して反映 */
+  _setView(view) {
+    if (this.view === view) return;
+    this.view = view;
+    this._applyView();
+    this.render();
+  }
+
+  /** 現在の表示モードをDOMへ反映 */
+  _applyView() {
+    const isMap = this.view === "map";
+
+    this.mapView.hidden = !isMap;
+    this.listView.hidden = isMap;
+    // ソートは一覧表示のみ意味を持つため、マップ表示では隠す
+    this.sortWrap.hidden = isMap;
+
+    // トグルボタンの状態
+    this.viewMapBtn.classList.toggle("is-active", isMap);
+    this.viewListBtn.classList.toggle("is-active", !isMap);
+    this.viewMapBtn.setAttribute("aria-selected", isMap ? "true" : "false");
+    this.viewListBtn.setAttribute("aria-selected", isMap ? "false" : "true");
   }
 
   /* --------------------------------------------------
@@ -445,6 +552,12 @@ class App {
   /** カテゴリチップのトグル */
   _onCategoryToggle(category) {
     this.filter.toggleCategory(category);
+    this.render();
+  }
+
+  /** ゾーンチップ（風景マップ）のトグル */
+  _onZoneToggle(zoneKey) {
+    this.filter.toggleZone(zoneKey);
     this.render();
   }
 
@@ -476,12 +589,13 @@ class App {
     this.searchInput.focus();
   }
 
-  /** 検索・カテゴリ・ソートをすべて初期化 */
+  /** 検索・カテゴリ・ゾーン・ソートをすべて初期化 */
   _resetAll() {
     this.searchInput.value = "";
     this.ui.toggleSearchClear(false);
     this.search.clear();
     this.filter.clearCategories();
+    this.filter.clearZones();
     this.filter.setSort("name");
     this.sortSelect.value = "name";
     this.render();
