@@ -114,34 +114,57 @@
     <section id="map-view" class="map-view" aria-label="技術マップ（風景表示）">
       <p class="map-view__hint">
         <span aria-hidden="true">👆</span>
-        アイコンをクリックで詳細表示。ドラッグで移動、ホイール（スマホは2本指）で拡大・縮小できます。
+        アイコンをクリックで詳細表示。「立体」でドラッグするとグルグル回せます（平面時はドラッグで移動 ／ Shift＋ドラッグでも移動）。ホイールで拡大・縮小。
       </p>
 
       <!-- ビューポート：この枠内でマップを移動・拡大縮小する -->
       <div class="map-viewport" id="map-viewport" tabindex="0"
            role="application"
-           aria-label="技術マップ。矢印キーで移動、プラス・マイナスキーで拡大縮小できます。">
+           aria-label="技術マップ。矢印キーで移動、プラス・マイナスキーで拡大縮小、Shift＋左右キーで回転できます。">
 
-        <!-- 移動・拡大縮小の対象（JSでtransformを適用） -->
-        <div class="map-stage" id="map-stage">
+        <!-- 空レイヤー：回転しない背景（立体表示で地面だけが回るようにするため分離） -->
+        <div class="map-sky" aria-hidden="true"></div>
 
-          <!-- 背景の風景イラスト
-               assets/images/cityscape.svg（生成スクリプトで作成した俯瞰の街並み）
-               ピンは下の .map-pins に重ねて配置する -->
-          <img class="map-scene" src="assets/images/cityscape.svg"
-               alt="山・ダム・河川・公園・高速道路・高層ビル群・高架鉄道・港と海を一望する俯瞰の風景イラスト"
-               draggable="false">
+        <!-- 3Dワールド：JSでtransform（移動・回転・拡大縮小）を適用する対象 -->
+        <div class="map-world" id="map-world">
 
-          <!-- 技術ピン：JSで生成（マップと一緒に移動・拡大縮小する） -->
-          <div class="map-pins" id="map-pins"></div>
+          <!-- 地図の厚み（浮島のような側面）。立体表示のときだけ見える -->
+          <span class="map-slab map-slab--n" aria-hidden="true"></span>
+          <span class="map-slab map-slab--s" aria-hidden="true"></span>
+          <span class="map-slab map-slab--e" aria-hidden="true"></span>
+          <span class="map-slab map-slab--w" aria-hidden="true"></span>
 
+          <!-- 地図の上面（イラスト＋ピン） -->
+          <div class="map-stage" id="map-stage">
+
+            <!-- 背景の風景イラスト
+                 assets/images/cityscape.svg（生成スクリプトで作成した俯瞰の街並み） -->
+            <img class="map-scene" src="assets/images/cityscape.svg"
+                 alt="山・ダム・河川・公園・高速道路・高層ビル群・高架鉄道・港と海を一望する俯瞰の地形イラスト"
+                 draggable="false">
+
+            <!-- ピンの位置基準点：3D空間内に置き、投影位置をJSで読み取る -->
+            <div class="map-anchors" id="map-anchors" aria-hidden="true"></div>
+
+          </div>
         </div>
+
+        <!-- 技術ピン：3Dの外に置く平面レイヤー。
+             上のアンカーの投影位置に合わせてJSが配置するため、
+             回転しても常に正面を向き、クリック判定もズレない -->
+        <div class="map-pins" id="map-pins"></div>
 
         <!-- ゾーンラベル（ビューポートに固定：拡大縮小しても常に見える） -->
         <div class="map-zones" id="map-zones" role="group" aria-label="ゾーンで絞り込み"></div>
 
-        <!-- 拡大縮小コントロール -->
+        <!-- 操作コントロール -->
         <div class="map-controls">
+          <button type="button" id="view-3d" class="map-ctrl map-ctrl--wide" aria-pressed="false"
+                  aria-label="立体表示に切り替え">立体</button>
+          <div class="map-controls__row">
+            <button type="button" id="rot-left" class="map-ctrl" aria-label="左に回転">⟲</button>
+            <button type="button" id="rot-right" class="map-ctrl" aria-label="右に回転">⟳</button>
+          </div>
           <button type="button" id="zoom-in" class="map-ctrl" aria-label="拡大">＋</button>
           <button type="button" id="zoom-out" class="map-ctrl" aria-label="縮小">−</button>
           <button type="button" id="zoom-reset" class="map-ctrl map-ctrl--wide" aria-label="表示位置をリセット">全体</button>

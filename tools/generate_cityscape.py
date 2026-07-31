@@ -10,8 +10,10 @@ import random, math, io
 W, H = 1600, 1000
 R = random.Random(20260731)
 
-out = []
+out = []      # 地面レイヤー（回転する板）
+sky_out = []  # 空レイヤー（回転しない背景）
 def add(s): out.append(s)
+def add_sky(s): sky_out.append(s)
 
 # ------------------------------------------------------------------
 # パレット（彩度高め・くっきり）
@@ -188,9 +190,7 @@ def road_band(p, width, dash=True, lanes=True):
 #   空 → 遠景 → 大地 → 山・ダム → 河川 → 海 → 市街地の舗装 →
 #   道路・IC → 公園・郊外 → 街路樹 → ビル群 → 高架鉄道 → 橋・港 → 気球
 # ==================================================================
-add('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d">' % (W, H, W, H))
-
-add('''<defs>
+DEFS = ('''<defs>
 <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
   <stop offset="0" stop-color="#1f7fd0"/><stop offset=".45" stop-color="#6fc0ee"/>
   <stop offset=".78" stop-color="#bfe6fa"/><stop offset="1" stop-color="#e6f6ff"/>
@@ -215,10 +215,11 @@ add('''<defs>
 </linearGradient>
 </defs>''')
 
-# ---------------- 空・星・雲 ----------------
-add('<rect width="%d" height="%d" fill="url(#sky)"/>' % (W, H))
+
+# ---------------- 空・星・雲（空レイヤー） ----------------
+add_sky('<rect width="%d" height="%d" fill="url(#sky)"/>' % (W, H))
 for _ in range(90):
-    add('<circle cx="%s" cy="%s" r="%s" fill="#fff" opacity="%s"/>'
+    add_sky('<circle cx="%s" cy="%s" r="%s" fill="#fff" opacity="%s"/>'
         % (esc(R.uniform(0, W)), esc(R.uniform(0, 150)), esc(R.uniform(.6, 1.5)), esc(R.uniform(.25, .8))))
 
 def cloud(x, y, s):
@@ -228,12 +229,14 @@ def cloud(x, y, s):
             % (esc(x), esc(y), esc(s)))
 for (cx, cy, cs) in [(150,120,1.1),(430,86,.9),(700,140,1.2),(980,74,1.0),
                      (1250,132,1.1),(1490,92,.85),(320,196,.7),(1110,200,.65),(860,218,.6)]:
-    add(cloud(cx, cy, cs))
+    add_sky(cloud(cx, cy, cs))
 
-# ---------------- 遠景の山なみ・森 ----------------
-add('<polygon points="%s" fill="#8098c8" opacity=".9"/>' % pts(
+# 遠景の山なみ（空レイヤー：地平線の背景）
+add_sky('<polygon points="%s" fill="#8098c8" opacity=".9"/>' % pts(
     [(0,300),(120,246),(240,286),(360,238),(500,282),(640,244),(780,286),(920,250),
-     (1060,288),(1200,246),(1340,284),(1480,250),(1600,290),(1600,346),(0,346)]))
+     (1060,288),(1200,246),(1340,284),(1480,250),(1600,290),(1600,360),(0,360)]))
+
+# ---------------- ここから地面レイヤー ----------------
 add('<path d="M0 332 Q 200 308 400 332 T 800 332 T 1200 332 T 1600 332 L 1600 378 L 0 378 Z" fill="#2b8746"/>')
 for _ in range(170):
     add('<circle cx="%s" cy="%s" r="%s" fill="%s"/>'
@@ -243,12 +246,13 @@ for _ in range(170):
 add('<polygon points="%s" fill="url(#grd)"/>' % pts([(0,358),(1600,358),(1600,1000),(0,1000)]))
 
 # ---------------- 左：山地・森・ダム ----------------
-add('<polygon points="%s" fill="url(#mtn)" stroke="#414f8a" stroke-width="2"/>' % pts([(0,486),(148,300),(296,486)]))
-add('<polygon points="%s" fill="#fff"/>' % pts([(96,362),(148,300),(202,362),(174,384),(124,384)]))
-add('<polygon points="%s" fill="url(#mtn2)" stroke="#3a477e" stroke-width="2"/>' % pts([(116,486),(296,268),(476,486)]))
-add('<polygon points="%s" fill="#fff"/>' % pts([(238,338),(296,268),(356,338),(326,362),(270,362)]))
-add('<polygon points="%s" fill="#6f7fc0" stroke="#414f8a" stroke-width="2"/>' % pts([(330,486),(452,330),(574,486)]))
-add('<polygon points="%s" fill="#fff"/>' % pts([(412,390),(452,330),(494,390),(472,408),(434,408)]))
+# ※ 地面レイヤーは y=330 から切り出すため、山頂が切れないよう頂点は 330 より下に置く
+add('<polygon points="%s" fill="url(#mtn)" stroke="#414f8a" stroke-width="2"/>' % pts([(0,486),(148,352),(296,486)]))
+add('<polygon points="%s" fill="#fff"/>' % pts([(110,398),(148,352),(188,398),(166,416),(130,416)]))
+add('<polygon points="%s" fill="url(#mtn2)" stroke="#3a477e" stroke-width="2"/>' % pts([(116,486),(296,340),(476,486)]))
+add('<polygon points="%s" fill="#fff"/>' % pts([(252,392),(296,340),(342,392),(318,412),(276,412)]))
+add('<polygon points="%s" fill="#6f7fc0" stroke="#414f8a" stroke-width="2"/>' % pts([(330,486),(452,362),(574,486)]))
+add('<polygon points="%s" fill="#fff"/>' % pts([(420,412),(452,362),(486,412),(468,428),(438,428)]))
 for _ in range(80):
     add(tree(R.uniform(10, 580), R.uniform(462, 540), R.uniform(.7, 1.15), "cone"))
 
@@ -452,14 +456,28 @@ add('<g transform="translate(1352,972)"><path d="M-28 0 h56 l-10 15 h-36 z" fill
 add('<path d="M1418 706 l106 30" stroke="#e2e9ef" stroke-width="13" stroke-linecap="round" fill="none"/>')
 
 # ---------------- 気球 ----------------
-add(balloon(232, 208, 1.05, "#e8534f", "#f2c14e", "#4fb3e8"))
-add(balloon(556, 166, .8,  "#4fb3e8", "#ffffff", "#e8534f"))
-add(balloon(884, 230, .9,  "#f2c14e", "#69b06a", "#ffffff"))
-add(balloon(1214, 188, 1.0, "#c86fd0", "#f2c14e", "#4fb3e8"))
-add(balloon(1476, 248, .75, "#69b06a", "#ffffff", "#e8534f"))
+add_sky(balloon(232, 208, 1.05, "#e8534f", "#f2c14e", "#4fb3e8"))
+add_sky(balloon(556, 166, .8,  "#4fb3e8", "#ffffff", "#e8534f"))
+add_sky(balloon(884, 230, .9,  "#f2c14e", "#69b06a", "#ffffff"))
+add_sky(balloon(1214, 188, 1.0, "#c86fd0", "#f2c14e", "#4fb3e8"))
+add_sky(balloon(1476, 248, .75, "#69b06a", "#ffffff", "#e8534f"))
 
-add('</svg>')
+# ==================================================================
+# 書き出し
+#   sky.svg       … 回転しない背景（空・雲・気球・遠景の山）
+#   cityscape.svg … 回転する地面の板（y=330 以降を切り出す）
+# ==================================================================
+GROUND_TOP, GROUND_H = 330, 670
 
-svg = "\n".join(out)
-io.open("assets/images/cityscape.svg", "w", encoding="utf-8").write(svg)
-print("written: assets/images/cityscape.svg  size=%.1f KB  elements=%d" % (len(svg)/1024, svg.count("<")))
+sky_svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" '
+           'preserveAspectRatio="none" width="%d" height="%d">' % (W, H, W, H)
+           + DEFS + "\n".join(sky_out) + '</svg>')
+io.open("assets/images/sky.svg", "w", encoding="utf-8").write(sky_svg)
+
+ground_svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 %d %d %d" '
+              'width="%d" height="%d">' % (GROUND_TOP, W, GROUND_H, W, GROUND_H)
+              + DEFS + "\n".join(out) + '</svg>')
+io.open("assets/images/cityscape.svg", "w", encoding="utf-8").write(ground_svg)
+
+print("written: sky.svg %.1f KB / cityscape.svg %.1f KB (elements=%d)"
+      % (len(sky_svg)/1024, len(ground_svg)/1024, ground_svg.count("<")))

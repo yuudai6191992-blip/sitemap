@@ -494,7 +494,7 @@ button {
   margin-bottom: var(--space-md);
 }
 
-/* ビューポート：この枠の中でマップを移動・拡大縮小する */
+/* ビューポート：この枠の中でマップを移動・回転・拡大縮小する */
 .map-viewport {
   position: relative;
   width: 100%;
@@ -505,30 +505,85 @@ button {
   box-shadow: var(--shadow-md);
   background-color: #dff0fb;
   cursor: grab;
-  touch-action: none; /* ピンチ・ドラッグを自前で処理 */
+  touch-action: none;   /* ピンチ・ドラッグを自前で処理 */
+  perspective: 1400px;  /* 立体表示のための遠近感 */
+  perspective-origin: 50% 45%;
 }
-/* ドラッグ中はカーソルを変える */
-.map-viewport.is-panning {
-  cursor: grabbing;
+/* 空レイヤー：回転・拡大縮小の影響を受けない背景。
+   地面（.map-world）だけが回るため、立体表示でも空が寝てしまわない */
+.map-sky {
+  position: absolute;
+  inset: 0;
+  background-image: url("../assets/images/sky.svg");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
 }
+/* 操作中はカーソルを変える */
+.map-viewport.is-panning { cursor: grabbing; }
+.map-viewport.is-rotating { cursor: move; }
 .map-viewport:focus-visible {
   outline: 3px solid var(--color-primary);
   outline-offset: 3px;
 }
 
-/* 風景ステージ：JSでtransform（移動・拡大縮小）を適用する対象 */
-.map-stage {
+/* 3Dワールド（地面の板）：JSでtransform（移動・回転・拡大縮小）を適用する対象。
+   空レイヤーの手前に、ビューポート下端へ揃えて配置する */
+.map-world {
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 0;
   width: 100%;
-  aspect-ratio: 1600 / 1000;
-  transform-origin: 0 0;
+  aspect-ratio: 1600 / 670; /* 地面イラストの比率 */
+  transform-origin: 50% 50%;
+  transform-style: preserve-3d; /* 子要素の3D配置を保つ */
   will-change: transform;
 }
-/* ドラッグ中はアニメーションを切り、追従を滑らかに */
-.map-stage.is-animating {
-  transition: transform 0.25s ease;
+/* ボタン操作時だけアニメーションさせる（ドラッグ中は即時追従） */
+.map-world.is-animating {
+  transition: transform 0.32s cubic-bezier(.22,.61,.36,1);
+}
+
+/* 地図の上面（イラスト＋ピン） */
+.map-stage {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+/* --- 地図の厚み（浮島の側面）：立体表示のときだけ見える --- */
+.map-slab {
+  position: absolute;
+  display: block;
+  background: linear-gradient(180deg, #b98049 0%, #8a5a2b 100%);
+  backface-visibility: hidden;
+}
+/* 南（手前）側面 */
+.map-slab--s {
+  top: 100%; left: 0; width: 100%; height: var(--slab-h, 42px);
+  transform-origin: top center;
+  transform: rotateX(-90deg);
+}
+/* 北（奥）側面 ※ filter は3Dを平面化してしまうため、陰影は配色で表現する */
+.map-slab--n {
+  bottom: 100%; left: 0; width: 100%; height: var(--slab-h, 42px);
+  transform-origin: bottom center;
+  transform: rotateX(90deg);
+  background: linear-gradient(180deg, #7a4f27 0%, #5f3d1e 100%);
+}
+/* 東（右）側面 */
+.map-slab--e {
+  left: 100%; top: 0; width: var(--slab-h, 42px); height: 100%;
+  transform-origin: left center;
+  transform: rotateY(90deg);
+  background: linear-gradient(90deg, #a97042 0%, #7d5127 100%);
+}
+/* 西（左）側面 */
+.map-slab--w {
+  right: 100%; top: 0; width: var(--slab-h, 42px); height: 100%;
+  transform-origin: right center;
+  transform: rotateY(-90deg);
+  background: linear-gradient(90deg, #6f4622 0%, #94623a 100%);
 }
 
 /* 背景の風景イラスト */
@@ -573,6 +628,17 @@ button {
 }
 .map-ctrl--wide {
   font-size: 0.78rem;
+}
+/* 回転ボタンを横並びに */
+.map-controls__row {
+  display: flex;
+  gap: 6px;
+}
+/* 立体表示ON時のボタン強調 */
+.map-ctrl[aria-pressed="true"] {
+  background-color: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
 }
 
 /* 現在の倍率表示 */
@@ -658,27 +724,45 @@ button {
 }
 
 /* --- 技術ピン --- */
+/* ピンの位置基準点：3D空間内に置く見えないマーカー。
+   投影後の位置と大きさ（＝奥行き）をJSが読み取る */
+.map-anchors {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+.map-anchor {
+  position: absolute;
+  width: 40px;   /* MapManager.ANCHOR_SIZE と対応 */
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  pointer-events: none;
+}
+
+/* ピン本体：3Dの外に置く平面レイヤー。JSがアンカーの投影位置へ配置する */
 .map-pins {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 5;
+  pointer-events: none; /* 隙間は下の地図の操作を透過させる */
 }
 .map-pin {
   position: absolute;
   width: 54px;
   height: 54px;
-  /* left/top はJSで % 指定。中心を基準に、拡大時は逆スケールをかけて
-     ピンの見た目の大きさを一定に近づける */
-  margin-left: -27px;
-  margin-top: -27px;
+  /* left/top はJSがpxで指定。指定点が中心になるようずらす */
   transform-origin: center center;
-  transform: scale(var(--pin-counter-scale, 1));
+  transform: translate(-50%, -50%) scale(var(--pin-depth, 1));
   padding: 0;
   border: none;
   background: transparent;
   cursor: pointer;
-  z-index: 3;
-  transition: transform var(--transition);
+  pointer-events: auto;
+}
+/* 画面外へ出たピンは非表示にして操作対象から外す */
+.map-pin.is-offscreen {
+  display: none;
 }
 /* 円形の本体（浮遊アニメーションはここに付与） */
 .map-pin__disc {
@@ -701,11 +785,10 @@ button {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-6px); }
 }
-/* ホバー・フォーカスで拡大し前面へ（逆スケールを保ったまま拡大） */
+/* ホバー・フォーカスで拡大（奥行きスケールを保ったまま拡大） */
 .map-pin:hover,
 .map-pin:focus-visible {
-  transform: scale(calc(var(--pin-counter-scale, 1) * 1.16));
-  z-index: 10;
+  transform: translate(-50%, -50%) scale(calc(var(--pin-depth, 1) * 1.18));
   outline: none;
 }
 .map-pin:focus-visible .map-pin__disc {
