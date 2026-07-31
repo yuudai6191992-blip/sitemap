@@ -108,148 +108,343 @@
 
     <!-- ========================================================
          ① マップ表示（ビジュアル・3D風景）
-         SVGで描いた風景の上に、技術ピンとゾーンラベルを重ねる
+         ・ドラッグで移動、ホイール／ピンチ／ボタンで拡大縮小
+         ・SVGで描いた縮図の風景の上に、技術ピンを重ねる
     ======================================================== -->
     <section id="map-view" class="map-view" aria-label="技術マップ（風景表示）">
       <p class="map-view__hint">
         <span aria-hidden="true">👆</span>
-        風景の上のアイコンをクリックすると技術の詳細が開きます。上部のゾーンで絞り込めます。
+        アイコンをクリックで詳細表示。ドラッグで移動、ホイール（スマホは2本指）で拡大・縮小できます。
       </p>
 
-      <!-- 横スクロール可能なステージ（狭い画面向け） -->
-      <div class="map-scroll">
+      <!-- ビューポート：この枠内でマップを移動・拡大縮小する -->
+      <div class="map-viewport" id="map-viewport" tabindex="0"
+           role="application"
+           aria-label="技術マップ。矢印キーで移動、プラス・マイナスキーで拡大縮小できます。">
+
+        <!-- 移動・拡大縮小の対象（JSでtransformを適用） -->
         <div class="map-stage" id="map-stage">
 
-          <!-- 背景の風景イラスト（インラインSVG） -->
-          <svg class="map-scene" viewBox="0 0 1200 680" preserveAspectRatio="xMidYMid slice"
-               role="img" aria-label="山から河川・都市・海へと続く風景イラスト">
+          <!-- 背景の風景イラスト（インラインSVG・都市／山／川／海の縮図） -->
+          <svg class="map-scene" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid meet"
+               role="img" aria-label="山・ダム・河川・公園のある都市・港と海を一望する風景イラスト">
             <defs>
               <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#cdeafc"/>
+                <stop offset="0" stop-color="#c7e7fb"/>
                 <stop offset="1" stop-color="#eaf6ff"/>
               </linearGradient>
               <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#a5d66f"/>
-                <stop offset="1" stop-color="#7cc250"/>
+                <stop offset="0" stop-color="#a9d972"/>
+                <stop offset="1" stop-color="#7abd4e"/>
               </linearGradient>
               <linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#6cc6e6"/>
-                <stop offset="1" stop-color="#2f9fd4"/>
+                <stop offset="0" stop-color="#7fd0ea"/>
+                <stop offset="1" stop-color="#2b93cc"/>
               </linearGradient>
               <linearGradient id="river" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#8fd3f0"/>
-                <stop offset="1" stop-color="#49ade0"/>
+                <stop offset="0" stop-color="#93d8f2"/>
+                <stop offset="1" stop-color="#48b0e2"/>
               </linearGradient>
               <linearGradient id="mount" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#9aa7d6"/>
-                <stop offset="1" stop-color="#6f7fb8"/>
+                <stop offset="0" stop-color="#9fabda"/>
+                <stop offset="1" stop-color="#6b7cb6"/>
+              </linearGradient>
+              <linearGradient id="mount2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#8b98cc"/>
+                <stop offset="1" stop-color="#5d6da6"/>
               </linearGradient>
               <linearGradient id="earth" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#b07a43"/>
+                <stop offset="0" stop-color="#b98049"/>
                 <stop offset="1" stop-color="#8a5a2b"/>
+              </linearGradient>
+              <!-- 市街地ブロック（建物が並ぶエリア）の下地 -->
+              <linearGradient id="block" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#e9eef3"/>
+                <stop offset="1" stop-color="#d7e0e8"/>
               </linearGradient>
             </defs>
 
-            <!-- 空 -->
-            <rect x="0" y="0" width="1200" height="680" fill="url(#sky)"/>
-
-            <!-- 太陽（海の上・右上） -->
-            <circle cx="1090" cy="88" r="34" fill="#ffd34e"/>
-            <g stroke="#ffd34e" stroke-width="5" stroke-linecap="round">
-              <line x1="1090" y1="30" x2="1090" y2="44"/>
-              <line x1="1150" y1="88" x2="1136" y2="88"/>
-              <line x1="1030" y1="88" x2="1044" y2="88"/>
-              <line x1="1132" y1="46" x2="1122" y2="56"/>
-              <line x1="1048" y1="46" x2="1058" y2="56"/>
+            <!-- ===== 空・太陽・雲 ===== -->
+            <rect x="0" y="0" width="1600" height="1000" fill="url(#sky)"/>
+            <circle cx="1330" cy="110" r="38" fill="#ffd34e"/>
+            <g stroke="#ffd34e" stroke-width="6" stroke-linecap="round">
+              <line x1="1330" y1="44" x2="1330" y2="58"/>
+              <line x1="1396" y1="110" x2="1382" y2="110"/>
+              <line x1="1264" y1="110" x2="1278" y2="110"/>
+              <line x1="1377" y1="63" x2="1367" y2="73"/>
+              <line x1="1283" y1="63" x2="1293" y2="73"/>
             </g>
-            <!-- 雲 -->
             <g fill="#ffffff" opacity="0.92">
-              <ellipse cx="210" cy="96" rx="46" ry="20"/>
-              <ellipse cx="250" cy="104" rx="34" ry="16"/>
-              <ellipse cx="880" cy="120" rx="46" ry="20"/>
-              <ellipse cx="918" cy="128" rx="32" ry="15"/>
+              <ellipse cx="250" cy="92" rx="52" ry="22"/>
+              <ellipse cx="296" cy="100" rx="38" ry="17"/>
+              <ellipse cx="700" cy="70" rx="46" ry="20"/>
+              <ellipse cx="740" cy="78" rx="32" ry="15"/>
+              <ellipse cx="1080" cy="150" rx="42" ry="18"/>
             </g>
-
-            <!-- 地面（アイソメトリックな台地） -->
-            <polygon points="0,360 720,300 1200,392 1200,680 0,680" fill="url(#ground)"/>
-            <!-- 手前の土の断面（立体感） -->
-            <polygon points="0,680 0,360 210,470 210,680" fill="url(#earth)"/>
-            <polygon points="0,360 210,470 210,486 0,376" fill="#000000" opacity="0.06"/>
-
-            <!-- 海（右手前） -->
-            <polygon points="1200,392 900,470 820,680 1200,680" fill="url(#ocean)"/>
-            <g stroke="#ffffff" stroke-width="4" opacity="0.5" stroke-linecap="round" fill="none">
-              <path d="M980 520 q20 -12 40 0 t40 0"/>
-              <path d="M1010 570 q20 -12 40 0 t40 0"/>
-              <path d="M950 610 q20 -12 40 0 t40 0"/>
-            </g>
-
-            <!-- 山（左） -->
-            <polygon points="20,362 175,150 330,362" fill="url(#mount)"/>
-            <polygon points="120,240 175,150 232,240 205,262 145,262" fill="#ffffff"/>
-            <polygon points="150,362 300,196 450,362" fill="#8290c4"/>
-            <polygon points="252,262 300,196 350,262 322,282 280,282" fill="#ffffff"/>
-
-            <!-- ダム（山あいの構造物） -->
-            <path d="M300 300 q60 20 120 4 l0 40 q-60 16 -120 -4 z" fill="#cfd6dd"/>
-            <path d="M300 300 q60 20 120 4" fill="none" stroke="#aeb7c0" stroke-width="3"/>
-
-            <!-- 河川（山から海へ蛇行） -->
-            <path d="M312 316
-                     C 360 380, 320 430, 380 470
-                     S 520 520, 620 556
-                     S 800 596, 900 470
-                     L 980 500
-                     C 880 640, 700 600, 560 540
-                     S 360 470, 300 372 Z"
-                  fill="url(#river)" opacity="0.95"/>
-
-            <!-- 道路（中央から都市へ） -->
-            <path d="M470 690 C 520 600, 560 560, 660 520 S 840 470, 940 452"
-                  fill="none" stroke="#c3ccd4" stroke-width="30" stroke-linecap="round"/>
-            <path d="M470 690 C 520 600, 560 560, 660 520 S 840 470, 940 452"
-                  fill="none" stroke="#ffffff" stroke-width="3" stroke-dasharray="10 14"/>
-
-            <!-- 都市のビル群（右） -->
+            <!-- 雨雲（左上・雨ゾーン） -->
             <g>
-              <rect x="836" y="300" width="46" height="120" rx="4" fill="#5b7fb0"/>
-              <rect x="890" y="266" width="52" height="154" rx="4" fill="#7a9ac6"/>
-              <rect x="950" y="300" width="44" height="120" rx="4" fill="#4f6f9e"/>
-              <rect x="1000" y="278" width="50" height="142" rx="4" fill="#8fabd2"/>
-              <rect x="1058" y="312" width="42" height="108" rx="4" fill="#6486b5"/>
-              <!-- 窓 -->
-              <g fill="#dceafb" opacity="0.9">
-                <rect x="846" y="316" width="8" height="10"/><rect x="864" y="316" width="8" height="10"/>
-                <rect x="846" y="338" width="8" height="10"/><rect x="864" y="338" width="8" height="10"/>
-                <rect x="900" y="284" width="9" height="11"/><rect x="922" y="284" width="9" height="11"/>
-                <rect x="900" y="308" width="9" height="11"/><rect x="922" y="308" width="9" height="11"/>
-                <rect x="1010" y="296" width="9" height="11"/><rect x="1030" y="296" width="9" height="11"/>
-                <rect x="1010" y="320" width="9" height="11"/><rect x="1030" y="320" width="9" height="11"/>
+              <ellipse cx="150" cy="150" rx="58" ry="24" fill="#c6d3de"/>
+              <ellipse cx="196" cy="158" rx="40" ry="18" fill="#d4dee7"/>
+              <g stroke="#8fc9e8" stroke-width="5" stroke-linecap="round">
+                <line x1="120" y1="180" x2="110" y2="204"/>
+                <line x1="152" y1="182" x2="142" y2="208"/>
+                <line x1="184" y1="180" x2="174" y2="204"/>
               </g>
             </g>
 
-            <!-- 樹木 -->
-            <g>
-              <g transform="translate(410,392)"><rect x="-3" y="10" width="6" height="14" fill="#8a5a2b"/><circle cx="0" cy="4" r="16" fill="#5fa544"/></g>
-              <g transform="translate(470,420)"><rect x="-3" y="10" width="6" height="14" fill="#8a5a2b"/><circle cx="0" cy="4" r="14" fill="#68b24c"/></g>
-              <g transform="translate(250,440)"><rect x="-3" y="10" width="6" height="14" fill="#8a5a2b"/><circle cx="0" cy="4" r="15" fill="#5fa544"/></g>
-              <g transform="translate(760,470)"><rect x="-3" y="10" width="6" height="14" fill="#8a5a2b"/><circle cx="0" cy="4" r="14" fill="#68b24c"/></g>
+            <!-- ===== 陸地（大地） ===== -->
+            <polygon points="0,470 560,330 1180,430 1600,560 1600,1000 0,1000" fill="url(#ground)"/>
+            <!-- 手前の土の断面 -->
+            <polygon points="0,1000 0,470 240,560 240,1000" fill="url(#earth)"/>
+            <polygon points="0,470 240,560 240,578 0,488" fill="#000000" opacity="0.06"/>
+
+            <!-- ===== 海（右側） ===== -->
+            <polygon points="1600,560 1180,430 1120,1000 1600,1000" fill="url(#ocean)"/>
+            <g stroke="#ffffff" stroke-width="5" opacity="0.45" stroke-linecap="round" fill="none">
+              <path d="M1290 640 q22 -14 44 0 t44 0"/>
+              <path d="M1360 720 q22 -14 44 0 t44 0"/>
+              <path d="M1250 800 q22 -14 44 0 t44 0"/>
+              <path d="M1380 880 q22 -14 44 0 t44 0"/>
             </g>
 
-            <!-- 船（海） -->
-            <g transform="translate(1040,560)">
-              <path d="M-30 0 h60 l-10 16 h-40 z" fill="#e7edf2"/>
-              <rect x="-12" y="-14" width="24" height="14" fill="#c0ccd6"/>
+            <!-- ===== 山地（左奥） ===== -->
+            <polygon points="30,478 210,190 390,478" fill="url(#mount)"/>
+            <polygon points="146,300 210,190 276,300 244,326 178,326" fill="#ffffff"/>
+            <polygon points="230,470 400,236 570,470" fill="url(#mount2)"/>
+            <polygon points="344,320 400,236 458,320 428,344 374,344" fill="#ffffff"/>
+            <polygon points="440,466 560,300 680,466" fill="#8290c4"/>
+            <polygon points="516,368 560,300 606,368 582,386 540,386" fill="#ffffff"/>
+            <!-- 森（山裾） -->
+            <g>
+              <g transform="translate(150,470)"><polygon points="0,-34 16,0 -16,0" fill="#4e9440"/><rect x="-3" y="0" width="6" height="10" fill="#7b5432"/></g>
+              <g transform="translate(196,486)"><polygon points="0,-30 15,0 -15,0" fill="#57a247"/><rect x="-3" y="0" width="6" height="9" fill="#7b5432"/></g>
+              <g transform="translate(300,492)"><polygon points="0,-32 15,0 -15,0" fill="#4e9440"/><rect x="-3" y="0" width="6" height="9" fill="#7b5432"/></g>
+              <g transform="translate(360,510)"><polygon points="0,-28 14,0 -14,0" fill="#57a247"/><rect x="-3" y="0" width="6" height="9" fill="#7b5432"/></g>
+            </g>
+
+            <!-- ===== ダム（山あい） ===== -->
+            <g>
+              <path d="M392 430 q76 26 152 6 l0 52 q-76 20 -152 -6 z" fill="#d6dde3"/>
+              <path d="M392 430 q76 26 152 6" fill="none" stroke="#aeb7c0" stroke-width="4"/>
+              <rect x="452" y="452" width="30" height="34" rx="3" fill="#b9c3cb"/>
+              <!-- 貯水 -->
+              <path d="M392 424 q76 26 152 6 l0 -22 q-76 18 -152 -8 z" fill="#7cc7e8"/>
+            </g>
+
+            <!-- ===== 河川（山→都市→海へ蛇行） ===== -->
+            <path d="M430 452
+                     C 470 540, 430 590, 500 640
+                     S 660 700, 800 740
+                     S 1020 790, 1150 700
+                     L 1230 742
+                     C 1080 862, 860 800, 700 742
+                     S 470 660, 400 496 Z"
+                  fill="url(#river)" opacity="0.96"/>
+            <!-- 河川敷の護岸 -->
+            <path d="M430 452 C 470 540, 430 590, 500 640 S 660 700, 800 740 S 1020 790, 1150 700"
+                  fill="none" stroke="#bfe6f7" stroke-width="4" opacity="0.8"/>
+
+            <!-- ===== 道路網（都市の格子＋幹線） ===== -->
+            <g stroke-linecap="round">
+              <!-- 幹線道路：左手前から都市を貫き港へ -->
+              <path id="mainroad" d="M180 1000 C 320 880, 460 820, 620 800 S 900 760, 1060 660 S 1180 600, 1260 590"
+                    fill="none" stroke="#c9d2da" stroke-width="34"/>
+              <path d="M180 1000 C 320 880, 460 820, 620 800 S 900 760, 1060 660 S 1180 600, 1260 590"
+                    fill="none" stroke="#ffffff" stroke-width="3" stroke-dasharray="14 18"/>
+
+              <!-- 都市の格子道路（縦） -->
+              <g stroke="#cdd6dd" stroke-width="14">
+                <path d="M900 470 L 840 690" fill="none"/>
+                <path d="M980 480 L 928 706" fill="none"/>
+                <path d="M1060 492 L 1014 720" fill="none"/>
+                <path d="M1140 506 L 1100 732" fill="none"/>
+              </g>
+              <!-- 都市の格子道路（横） -->
+              <g stroke="#cdd6dd" stroke-width="14">
+                <path d="M868 556 L 1180 592" fill="none"/>
+                <path d="M852 626 L 1150 664" fill="none"/>
+              </g>
+
+              <!-- 郊外の道（山・公園方面） -->
+              <path d="M470 640 C 560 620, 640 600, 720 560 S 830 520, 890 486"
+                    fill="none" stroke="#cdd6dd" stroke-width="16"/>
+              <path d="M300 720 C 380 700, 430 690, 500 676"
+                    fill="none" stroke="#cdd6dd" stroke-width="14"/>
+            </g>
+
+            <!-- ===== 橋（河川を渡る幹線） ===== -->
+            <g>
+              <rect x="742" y="716" width="120" height="26" rx="4" fill="#e3e9ee" transform="rotate(-8 802 729)"/>
+              <g stroke="#b9c3cb" stroke-width="5">
+                <line x1="756" y1="742" x2="756" y2="766" transform="rotate(-8 802 729)"/>
+                <line x1="846" y1="742" x2="846" y2="766" transform="rotate(-8 802 729)"/>
+              </g>
+              <!-- アーチ -->
+              <path d="M748 716 q56 -34 112 0" fill="none" stroke="#dfe6ec" stroke-width="7" transform="rotate(-8 802 729)"/>
+            </g>
+
+            <!-- ===== 市街地ブロック（建物が密集するエリアの舗装下地） ===== -->
+            <g opacity="0.75">
+              <polygon points="880,470 1160,506 1108,724 838,686" fill="url(#block)"
+                       stroke="#cbd5dd" stroke-width="2" stroke-linejoin="round"/>
+            </g>
+
+            <!-- ===== 都市：ビル群（高層＋中層でメリハリ） ===== -->
+            <g>
+              <!-- 後列（高層） -->
+              <rect x="900" y="330" width="52" height="150" rx="4" fill="#6b8dbd"/>
+              <rect x="960" y="286" width="58" height="196" rx="4" fill="#87a6cf"/>
+              <rect x="1026" y="322" width="50" height="162" rx="4" fill="#5c7fb1"/>
+              <rect x="1084" y="292" width="56" height="196" rx="4" fill="#7f9fca"/>
+              <rect x="1148" y="336" width="48" height="156" rx="4" fill="#6789ba"/>
+              <!-- ランドマークタワー -->
+              <polygon points="1216,500 1236,300 1256,500" fill="#9fb8d8"/>
+              <rect x="1229" y="270" width="14" height="34" fill="#c3d3e7"/>
+              <circle cx="1236" cy="264" r="7" fill="#ffd34e"/>
+
+              <!-- 前列（中層・カラフルに） -->
+              <rect x="884" y="520" width="54" height="112" rx="4" fill="#8fb0d6"/>
+              <rect x="946" y="540" width="50" height="104" rx="4" fill="#a8c3e0"/>
+              <rect x="1004" y="524" width="56" height="122" rx="4" fill="#7a9dc9"/>
+              <rect x="1068" y="546" width="50" height="108" rx="4" fill="#9bbadb"/>
+              <rect x="1124" y="530" width="46" height="120" rx="4" fill="#86a8d0"/>
+
+              <!-- 商業施設（低層・赤系アクセント） -->
+              <rect x="856" y="646" width="76" height="52" rx="5" fill="#e6b7a8"/>
+              <rect x="944" y="662" width="70" height="48" rx="5" fill="#efc9b4"/>
+
+              <!-- 窓（後列・前列） -->
+              <g fill="#dceafb" opacity="0.9">
+                <rect x="910" y="348" width="9" height="12"/><rect x="930" y="348" width="9" height="12"/>
+                <rect x="910" y="374" width="9" height="12"/><rect x="930" y="374" width="9" height="12"/>
+                <rect x="910" y="400" width="9" height="12"/><rect x="930" y="400" width="9" height="12"/>
+                <rect x="972" y="304" width="10" height="13"/><rect x="996" y="304" width="10" height="13"/>
+                <rect x="972" y="332" width="10" height="13"/><rect x="996" y="332" width="10" height="13"/>
+                <rect x="972" y="360" width="10" height="13"/><rect x="996" y="360" width="10" height="13"/>
+                <rect x="1096" y="310" width="10" height="13"/><rect x="1120" y="310" width="10" height="13"/>
+                <rect x="1096" y="338" width="10" height="13"/><rect x="1120" y="338" width="10" height="13"/>
+                <rect x="1096" y="366" width="10" height="13"/><rect x="1120" y="366" width="10" height="13"/>
+                <rect x="1016" y="542" width="10" height="12"/><rect x="1038" y="542" width="10" height="12"/>
+                <rect x="1016" y="568" width="10" height="12"/><rect x="1038" y="568" width="10" height="12"/>
+              </g>
+            </g>
+
+            <!-- ===== 公園（都市の緑地・池つき） ===== -->
+            <g>
+              <!-- 芝生 -->
+              <ellipse cx="700" cy="640" rx="132" ry="72" fill="#8ccb5c"/>
+              <ellipse cx="700" cy="640" rx="132" ry="72" fill="none" stroke="#76b74a" stroke-width="3"/>
+              <!-- 園路 -->
+              <path d="M596 664 q100 -54 208 -14" fill="none" stroke="#efe6cf" stroke-width="9"/>
+              <!-- 池 -->
+              <ellipse cx="736" cy="662" rx="44" ry="22" fill="#7cc7e8"/>
+              <ellipse cx="736" cy="662" rx="44" ry="22" fill="none" stroke="#bfe6f7" stroke-width="3"/>
+              <!-- 樹木 -->
+              <g>
+                <g transform="translate(636,610)"><rect x="-3" y="10" width="7" height="15" fill="#7b5432"/><circle cx="0" cy="2" r="18" fill="#5aa848"/></g>
+                <g transform="translate(686,592)"><rect x="-3" y="9" width="6" height="14" fill="#7b5432"/><circle cx="0" cy="0" r="16" fill="#66b452"/></g>
+                <g transform="translate(742,600)"><rect x="-3" y="9" width="6" height="14" fill="#7b5432"/><circle cx="0" cy="0" r="15" fill="#5aa848"/></g>
+                <g transform="translate(792,626)"><rect x="-3" y="9" width="6" height="14" fill="#7b5432"/><circle cx="0" cy="0" r="17" fill="#66b452"/></g>
+                <g transform="translate(620,668)"><rect x="-3" y="9" width="6" height="14" fill="#7b5432"/><circle cx="0" cy="0" r="14" fill="#5aa848"/></g>
+              </g>
+              <!-- 東屋 -->
+              <g transform="translate(668,656)">
+                <polygon points="0,-16 20,0 -20,0" fill="#d98b6a"/>
+                <rect x="-14" y="0" width="4" height="14" fill="#b9c3cb"/>
+                <rect x="10" y="0" width="4" height="14" fill="#b9c3cb"/>
+              </g>
+            </g>
+
+            <!-- ===== 郊外の住宅・田畑（左〜中央） ===== -->
+            <g>
+              <!-- 田畑 -->
+              <g opacity="0.95">
+                <polygon points="300,760 420,742 442,790 320,810" fill="#c9dd8a"/>
+                <polygon points="330,832 450,812 470,858 348,880" fill="#b6d477"/>
+                <g stroke="#a8c96a" stroke-width="2">
+                  <line x1="312" y1="768" x2="430" y2="750"/>
+                  <line x1="316" y1="782" x2="434" y2="764"/>
+                  <line x1="340" y1="842" x2="458" y2="822"/>
+                  <line x1="344" y1="856" x2="462" y2="836"/>
+                </g>
+              </g>
+              <!-- 住宅 -->
+              <g>
+                <g transform="translate(520,742)">
+                  <rect x="-18" y="0" width="36" height="26" fill="#f5f1e8"/>
+                  <polygon points="-22,0 0,-18 22,0" fill="#d98b6a"/>
+                </g>
+                <g transform="translate(576,772)">
+                  <rect x="-16" y="0" width="32" height="24" fill="#f5f1e8"/>
+                  <polygon points="-20,0 0,-16 20,0" fill="#7fb0d8"/>
+                </g>
+                <g transform="translate(492,806)">
+                  <rect x="-16" y="0" width="32" height="24" fill="#f5f1e8"/>
+                  <polygon points="-20,0 0,-16 20,0" fill="#d98b6a"/>
+                </g>
+              </g>
+            </g>
+
+            <!-- ===== 港・沿岸（右下） ===== -->
+            <g>
+              <!-- 埠頭 -->
+              <polygon points="1128,742 1290,776 1268,846 1108,806" fill="#dfe5ea"
+                       stroke="#c6d0d8" stroke-width="2" stroke-linejoin="round"/>
+              <!-- コンテナ -->
+              <g>
+                <rect x="1150" y="764" width="34" height="20" rx="2" fill="#e0705f"/>
+                <rect x="1190" y="772" width="34" height="20" rx="2" fill="#5f9fd0"/>
+                <rect x="1230" y="780" width="34" height="20" rx="2" fill="#e8b45a"/>
+                <rect x="1160" y="792" width="34" height="20" rx="2" fill="#69b06a"/>
+                <rect x="1202" y="800" width="34" height="20" rx="2" fill="#e0705f"/>
+              </g>
+              <!-- クレーン -->
+              <g stroke="#b9c3cb" stroke-width="6" fill="none">
+                <path d="M1268 760 v-58 h-52"/>
+                <path d="M1268 702 h34"/>
+              </g>
+              <!-- 防波堤 -->
+              <path d="M1330 640 l90 26" stroke="#cfd8de" stroke-width="12" stroke-linecap="round" fill="none"/>
+            </g>
+
+            <!-- ===== 海：船・浮標 ===== -->
+            <g transform="translate(1420,780)">
+              <path d="M-42 0 h84 l-14 22 h-56 z" fill="#eef3f7"/>
+              <rect x="-18" y="-20" width="36" height="20" fill="#c0ccd6"/>
+              <rect x="-4" y="-34" width="8" height="14" fill="#e0705f"/>
+            </g>
+            <g transform="translate(1240,930)">
+              <path d="M-26 0 h52 l-9 14 h-34 z" fill="#eef3f7"/>
+              <rect x="-10" y="-12" width="20" height="12" fill="#c0ccd6"/>
+            </g>
+
+            <!-- ===== 街路樹（幹線沿い） ===== -->
+            <g>
+              <g transform="translate(560,832)"><rect x="-3" y="8" width="6" height="13" fill="#7b5432"/><circle cx="0" cy="0" r="13" fill="#5fa544"/></g>
+              <g transform="translate(660,806)"><rect x="-3" y="8" width="6" height="13" fill="#7b5432"/><circle cx="0" cy="0" r="12" fill="#68b24c"/></g>
+              <g transform="translate(880,742)"><rect x="-3" y="8" width="6" height="13" fill="#7b5432"/><circle cx="0" cy="0" r="12" fill="#5fa544"/></g>
+              <g transform="translate(980,724)"><rect x="-3" y="8" width="6" height="13" fill="#7b5432"/><circle cx="0" cy="0" r="12" fill="#68b24c"/></g>
+              <g transform="translate(1060,700)"><rect x="-3" y="8" width="6" height="13" fill="#7b5432"/><circle cx="0" cy="0" r="12" fill="#5fa544"/></g>
             </g>
           </svg>
 
-          <!-- ゾーンラベル（風景上部に浮かぶ白いチップ）：JSで生成 -->
-          <div class="map-zones" id="map-zones" role="group" aria-label="ゾーンで絞り込み"></div>
-
-          <!-- 技術ピン：JSで生成 -->
+          <!-- 技術ピン：JSで生成（マップと一緒に移動・拡大縮小する） -->
           <div class="map-pins" id="map-pins"></div>
 
         </div>
+
+        <!-- ゾーンラベル（ビューポートに固定：拡大縮小しても常に見える） -->
+        <div class="map-zones" id="map-zones" role="group" aria-label="ゾーンで絞り込み"></div>
+
+        <!-- 拡大縮小コントロール -->
+        <div class="map-controls">
+          <button type="button" id="zoom-in" class="map-ctrl" aria-label="拡大">＋</button>
+          <button type="button" id="zoom-out" class="map-ctrl" aria-label="縮小">−</button>
+          <button type="button" id="zoom-reset" class="map-ctrl map-ctrl--wide" aria-label="表示位置をリセット">全体</button>
+        </div>
+
+        <!-- 現在の倍率表示 -->
+        <p class="map-scale" id="map-scale" aria-live="off">100%</p>
       </div>
     </section>
 

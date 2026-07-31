@@ -494,24 +494,41 @@ button {
   margin-bottom: var(--space-md);
 }
 
-/* 狭い画面では横スクロールで全景を見せる */
-.map-scroll {
-  overflow-x: auto;
-  overflow-y: hidden;
-  border-radius: var(--radius-lg);
-  -webkit-overflow-scrolling: touch;
-}
-
-/* 風景ステージ：一定のアスペクト比を保つ */
-.map-stage {
+/* ビューポート：この枠の中でマップを移動・拡大縮小する */
+.map-viewport {
   position: relative;
   width: 100%;
-  min-width: 760px; /* これ未満はスクロール */
-  aspect-ratio: 1200 / 680;
+  aspect-ratio: 16 / 10;
+  max-height: 76vh;
+  overflow: hidden; /* はみ出したマップを隠す */
   border-radius: var(--radius-lg);
-  overflow: hidden;
   box-shadow: var(--shadow-md);
-  background-color: #eaf6ff;
+  background-color: #dff0fb;
+  cursor: grab;
+  touch-action: none; /* ピンチ・ドラッグを自前で処理 */
+}
+/* ドラッグ中はカーソルを変える */
+.map-viewport.is-panning {
+  cursor: grabbing;
+}
+.map-viewport:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+/* 風景ステージ：JSでtransform（移動・拡大縮小）を適用する対象 */
+.map-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1600 / 1000;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+/* ドラッグ中はアニメーションを切り、追従を滑らかに */
+.map-stage.is-animating {
+  transition: transform 0.25s ease;
 }
 
 /* 背景の風景イラスト */
@@ -521,12 +538,63 @@ button {
   width: 100%;
   height: 100%;
   display: block;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
-/* --- ゾーンラベル（風景上部の白いチップ） --- */
+/* --- 拡大縮小コントロール --- */
+.map-controls {
+  position: absolute;
+  right: var(--space-md);
+  bottom: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 8;
+}
+.map-ctrl {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  background-color: rgba(255, 255, 255, 0.96);
+  color: var(--color-heading);
+  border-radius: var(--radius-md);
+  font-size: 1.15rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+  transition: background-color var(--transition), color var(--transition);
+}
+.map-ctrl:hover {
+  background-color: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+.map-ctrl--wide {
+  font-size: 0.78rem;
+}
+
+/* 現在の倍率表示 */
+.map-scale {
+  position: absolute;
+  left: var(--space-md);
+  bottom: var(--space-md);
+  z-index: 8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+}
+
+/* --- ゾーンラベル（ビューポート上部に固定・拡大縮小の影響を受けない） --- */
 .map-zones {
   position: absolute;
-  top: 3.5%;
+  top: var(--space-md);
   left: 0;
   right: 0;
   display: flex;
@@ -534,8 +602,8 @@ button {
   flex-wrap: wrap;
   gap: 0.5rem;
   padding-inline: var(--space-md);
-  z-index: 6; /* ピンより前面 */
-  pointer-events: none; /* 隙間はクリックを透過 */
+  z-index: 8; /* ピンより前面 */
+  pointer-events: none; /* 隙間はドラッグを透過 */
 }
 .map-zone {
   pointer-events: auto;
@@ -599,10 +667,12 @@ button {
   position: absolute;
   width: 54px;
   height: 54px;
-  /* left/top はJSで % 指定。中心合わせは負マージンで行い、
-     transform はホバー拡大に温存する */
+  /* left/top はJSで % 指定。中心を基準に、拡大時は逆スケールをかけて
+     ピンの見た目の大きさを一定に近づける */
   margin-left: -27px;
   margin-top: -27px;
+  transform-origin: center center;
+  transform: scale(var(--pin-counter-scale, 1));
   padding: 0;
   border: none;
   background: transparent;
@@ -631,10 +701,10 @@ button {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-6px); }
 }
-/* ホバー・フォーカスで拡大し前面へ */
+/* ホバー・フォーカスで拡大し前面へ（逆スケールを保ったまま拡大） */
 .map-pin:hover,
 .map-pin:focus-visible {
-  transform: scale(1.16);
+  transform: scale(calc(var(--pin-counter-scale, 1) * 1.16));
   z-index: 10;
   outline: none;
 }
