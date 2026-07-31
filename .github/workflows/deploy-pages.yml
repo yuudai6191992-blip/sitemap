@@ -1,0 +1,56 @@
+# ============================================================
+# GitHub Pages へ静的サイトを自動デプロイするワークフロー
+# --------------------------------------------------------
+# ・このブランチへ push すると自動でビルド不要のまま公開されます
+# ・actions/configure-pages の enablement:true により、
+#   リポジトリの Pages 設定が未有効でも自動的に有効化します
+# ・公開URL: https://<ユーザー名>.github.io/<リポジトリ名>/
+# ============================================================
+name: Deploy to GitHub Pages
+
+on:
+  # 対象ブランチへの push で実行
+  push:
+    branches:
+      - claude/technology-map-interactive-fnby80
+  # 手動実行も可能にする
+  workflow_dispatch:
+
+# GITHUB_TOKEN に Pages デプロイ用の権限を付与
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時実行を1つに制限（新しい実行を優先）
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # リポジトリを取得
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Pages を有効化・設定（未設定なら自動で有効化）
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      # サイト一式（リポジトリ直下）をアーティファクトとしてアップロード
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
+
+      # GitHub Pages へデプロイ
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
