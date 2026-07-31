@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="復建調査設計株式会社の保有技術を分野・キーワードから横断的に検索・閲覧できる技術マップです。">
+  <title>技術マップ | 復建調査設計株式会社</title>
+
+  <!-- 埋め込みSVGファビコン（外部ファイル不要でconsoleの404も回避） -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231466b8'/%3E%3Cpath d='M8 22V10h3.2l4.8 7 4.8-7H24v12h-3v-7l-4 5.8L13 15v7z' fill='%23fff'/%3E%3C/svg%3E">
+
+  <!-- スタイルシート -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ============================================================
+       ヘッダー
+       タイトル・検索ボックス・カテゴリフィルタを配置
+  ============================================================ -->
+  <header class="site-header">
+    <div class="container header-inner">
+
+      <!-- サイトタイトル -->
+      <div class="site-branding">
+        <p class="company-name">復建調査設計株式会社</p>
+        <h1 class="site-title">技術マップ</h1>
+        <p class="site-lead">保有技術を分野・キーワードから横断的に検索できます。</p>
+      </div>
+
+      <!-- 検索ボックス（全文検索） -->
+      <div class="search-box">
+        <label for="search-input" class="visually-hidden">技術を検索</label>
+        <span class="search-box__icon" aria-hidden="true">🔍</span>
+        <input
+          type="search"
+          id="search-input"
+          class="search-box__input"
+          placeholder="技術名・キーワードで検索（例：AI、点検、防災）"
+          autocomplete="off"
+          aria-describedby="result-count">
+        <button type="button" id="search-clear" class="search-box__clear" aria-label="検索条件をクリア" hidden>×</button>
+      </div>
+
+    </div>
+
+    <!-- カテゴリフィルタ（複数選択可能） -->
+    <nav class="category-filter" aria-label="カテゴリで絞り込み">
+      <div class="container">
+        <div class="category-filter__head">
+          <span class="category-filter__title">カテゴリで絞り込み（複数選択可）</span>
+          <button type="button" id="filter-reset" class="category-filter__reset">条件をリセット</button>
+        </div>
+        <!-- カテゴリチップはJavaScriptで動的生成 -->
+        <div id="category-list" class="category-filter__list" role="group" aria-label="カテゴリ一覧"></div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- ============================================================
+       メインコンテンツ
+  ============================================================ -->
+  <main class="container main-content">
+
+    <!-- 操作バー：パンくず・件数表示・ソート -->
+    <div class="toolbar">
+      <!-- パンくず／現在の検索条件表示 -->
+      <div class="toolbar__status">
+        <nav class="breadcrumb" aria-label="現在の表示条件">
+          <ol id="breadcrumb" class="breadcrumb__list"></ol>
+        </nav>
+        <p id="result-count" class="result-count" role="status" aria-live="polite"></p>
+      </div>
+
+      <!-- ソート選択 -->
+      <div class="toolbar__sort">
+        <label for="sort-select" class="toolbar__sort-label">並び替え</label>
+        <select id="sort-select" class="toolbar__sort-select">
+          <option value="name">名称順</option>
+          <option value="category">カテゴリ順</option>
+          <option value="newest">新着順</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ローディング表示 -->
+    <div id="loading" class="loading" role="status" aria-live="polite">
+      <span class="loading__spinner" aria-hidden="true"></span>
+      <span>技術データを読み込んでいます…</span>
+    </div>
+
+    <!-- No Data 表示 -->
+    <div id="no-data" class="no-data" hidden>
+      <p class="no-data__icon" aria-hidden="true">🗂️</p>
+      <p class="no-data__title">該当する技術が見つかりませんでした</p>
+      <p class="no-data__hint">検索条件やカテゴリを変更してお試しください。</p>
+      <button type="button" id="no-data-reset" class="btn btn--primary">条件をリセット</button>
+    </div>
+
+    <!-- 技術一覧エリア（カードはJavaScriptで動的生成） -->
+    <section id="card-grid" class="card-grid" aria-label="技術一覧"></section>
+
+  </main>
+
+  <!-- ============================================================
+       詳細表示モーダル
+       技術カードのクリックで内容を差し込み表示
+  ============================================================ -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal__overlay" data-modal-close></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button type="button" class="modal__close" data-modal-close aria-label="詳細を閉じる">×</button>
+      <!-- 詳細内容はJavaScriptで差し込み -->
+      <div id="modal-body" class="modal__body"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       フッター
+  ============================================================ -->
+  <footer class="site-footer">
+    <div class="container">
+      <p class="site-footer__company">復建調査設計株式会社</p>
+      <p class="site-footer__note">本ページに掲載の技術情報はサンプルデータです。</p>
+      <p class="site-footer__copy">&copy; <span id="footer-year"></span> FUKKEN CO., LTD. All Rights Reserved.</p>
+    </div>
+  </footer>
+
+  <!-- ============================================================
+       JavaScript
+       責務ごとにファイルを分割（クラス設計）
+       app.js が各マネージャーを統括する
+  ============================================================ -->
+  <script src="js/filter.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/modal.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
